@@ -1,277 +1,207 @@
 (($) => {
-	const DEBOUNCE_DELAY = 50;
+	"use strict";
 
-	let debounceTimer = null;
+	const SETTLE_TIMEOUT_MS = 500;
+	const LATE_SHIFT_WATCH_MS = 500;
+	const SCROLL_INTENT_KEY = "block_peek:scroll_intent";
+	// Stale-entry guard: a session-storage write is only honored if consumed
+	// within this window. Protects against leftover entries when the user
+	// navigated away mid-flow and returns to a different page much later.
+	const SCROLL_INTENT_TTL_MS = 30_000;
 
-	function debounce(func, delay) {
-		return function (...args) {
-			clearTimeout(debounceTimer);
-			debounceTimer = setTimeout(() => func.apply(this, args), delay);
-		};
-	}
+	// Module-level state. Resets on every full page load. On bfcache restore
+	// (pageshow persisted=true) we explicitly reset the iframe-reports cache.
+	const reportedIframes = new Set();
+	let pendingSettleNotifier = null;
 
-	function iframePreviews() {
-		const $iframes = $("iframe[data-iframe-preview]");
-		const resizeIframe = (event) => {
-			// Only accept messages from your iframe’s origin
-			if (event.data?.type === "resize" && event.data?.id) {
-				const iframe = $iframes.filter(`[data-slice-id="${event.data.id}"]`)[0];
-				if (!iframe) {
-					return;
-				}
-				const wrapper = iframe.parentElement;
-				const zoomFactor = parseFloat(wrapper.dataset.zoomFactor) || 0.5;
-				wrapper.style.height = `${event.data.height * zoomFactor}px`;
-			}
-		};
-
-		window.removeEventListener("message", resizeIframe);
-		if (!$iframes.length) {
-			return;
-		}
-		window.addEventListener("message", resizeIframe);
-	}
-
-	function asyncEdit() {
-		if (rex.page !== "content/edit") {
-			return;
-		}
-
-		let setHistory = true;
-		let existingSliceEdit = $(".rex-slice-edit");
-
-		const handleEdit = () => {
-			const editButtons = $('a.btn-edit[href*="slice_id"]');
-			editButtons
-				.off("click.asyncEdit")
-				.on("click.asyncEdit", async function (e) {
-					e.preventDefault();
-					const $this = $(this);
-					const slice = $(this).closest(".rex-slice");
-					const sliceId = slice.attr("id");
-					if (!sliceId) {
-						return;
-					}
-					if (existingSliceEdit.length) {
-						if (existingSliceEdit && sliceId === existingSliceEdit.attr("id")) {
-							return;
-						}
-						await restoreExistingSlice(existingSliceEdit);
-						existingSliceEdit = null;
-					}
-
-					restore();
-					rex_loader.show();
-					try {
-						const result = await fetch(this.href, {
-							method: "GET",
-							headers: {
-								"Content-Type": "text/html",
-								"X-Requested-With": "XMLHttpRequest",
-							},
-						});
-						if (!result.ok) throw new Error("Network response was not ok");
-						const html = await result.text();
-						const resultSlice = $(html).find(`#${sliceId}`);
-
-						if (resultSlice.length) {
-							$(".panel-body .alert").remove();
-							setSliceEdit(sliceId, slice);
-							slice.replaceWith(resultSlice);
-							$(document).trigger("rex:ready", [resultSlice]);
-							handleSave(resultSlice);
-							debouncedScrollToSlice(resultSlice[0]);
-							if (setHistory) {
-								history.pushState(null, "", $this.attr("href")); // change url without reloading page
-							}
-							setHistory = true;
-						}
-						rex_loader.hide();
-					} catch (error) {
-						console.error("Error editing slice:", error);
-					}
-				});
-		};
-
-		const handleSave = (slice) => {
-			const form = slice.find("form");
-			const saveButton = slice.find(".btn-save");
-			const applyButton = slice.find(".btn-apply");
-			if (saveButton.length) {
-				if (form.length) {
-					form.off("submit.asyncSave").on("submit.asyncSave", (e) => {
-						e.preventDefault();
-						saveButton.trigger("click.asyncSave");
-					});
-				}
-				saveButton.off("click.asyncSave").on("click.asyncSave", (e) => {
-					e.preventDefault();
-					const buttonAction = saveButton.attr("name");
-					const buttonActionValue = saveButton.attr("value");
-					if (typeof ckeditors !== "undefined" && typeof ckeditors === "object") {
-						for (const [_key, editor] of Object.entries(ckeditors)) {
-							editor.updateSourceElement();
-						}
-					}
-					const formData = new FormData(form[0]);
-					formData.append(buttonAction, buttonActionValue);
-					fetch(form.attr("action"), {
-						method: "POST",
-						body: formData,
-					})
-						.then((response) => {
-							if (!response.ok) {
-								throw new Error("Network response was not ok");
-							}
-							return response.text();
-						})
-						.then((html) => {
-							const updatedSlice = $(html).find(`#${slice.attr("id")}`);
-							if (updatedSlice.length) {
-								slice.replaceWith(updatedSlice);
-								debouncedScrollToSlice(updatedSlice[0]);
-								existingSliceEdit = [];
-								handleEdit();
-								// update the URL to remove `&function=edit#slice2` after saving
-								if (window.location.search.includes("function=edit")) {
-									const url = new URL(window.location);
-									url.searchParams.delete("function");
-									window.history.replaceState(null, "", url.toString());
-								}
-							}
-							$(document).trigger("rex:ready", [updatedSlice || slice]);
-						})
-						.catch((error) => {
-							console.error("Error saving slice:", error);
-						});
-				});
-			}
-			if (applyButton.length) {
-				applyButton.off("click.asyncApply").on("click.asyncApply", (e) => {
-					e.preventDefault();
-					const buttonAction = applyButton.attr("name");
-					const buttonActionValue = applyButton.attr("value");
-					if (typeof ckeditors !== "undefined" && typeof ckeditors === "object") {
-						for (const [_key, editor] of Object.entries(ckeditors)) {
-							editor.updateSourceElement();
-						}
-					}
-					const formData = new FormData(form[0]);
-					formData.append(buttonAction, buttonActionValue);
-					// store current scroll position to restore it after saving
-					const scrollPosition = window.scrollY;
-					fetch(form.attr("action"), {
-						method: "POST",
-						body: formData,
-					})
-						.then((response) => {
-							if (!response.ok) {
-								throw new Error("Network response was not ok");
-							}
-							return response.text();
-						})
-						.then((html) => {
-							const updatedSlice = $(html).find(`#${slice.attr("id")}`);
-							if (updatedSlice.length) {
-								slice.replaceWith(updatedSlice);
-								setSliceEdit(updatedSlice.attr("id"), updatedSlice);
-								existingSliceEdit = updatedSlice;
-								if (scrollPosition) {
-									console.log("Restoring scroll position:", scrollPosition);
-									setTimeout(() => {
-										window.scrollTo({
-											top: scrollPosition,
-											behavior: "instant",
-										});
-									});
-								}
-							}
-							$(document).trigger("rex:ready", [updatedSlice || slice]);
-						})
-						.catch((error) => {
-							console.error("Error updating slice:", error);
-						});
-				});
-			}
-		};
-
-		if (existingSliceEdit.length) {
-			handleSave(existingSliceEdit);
-		}
-
-		const scrollToSlice = (slice) => {
-			slice.scrollIntoView({ behavior: "auto" });
-		};
-		const setSliceEdit = (id, element) => {
-			rex.isSliceEditing = true;
-			rex.sliceEditCurrent = element.clone(true, true);
-			rex.sliceEditCurrentId = id;
-		};
-		const restore = () => {
-			if (rex.isSliceEditing && rex.sliceEditCurrent) {
-				const currentSlice = $(`#${rex.sliceEditCurrentId}`);
-				if (currentSlice.length && currentSlice.hasClass("rex-slice-edit")) {
-					currentSlice.replaceWith(rex.sliceEditCurrent);
-				}
-				rex.isSliceEditing = false;
-				rex.sliceEditCurrent = null;
-			}
-		};
-		const debouncedScrollToSlice = debounce(
-			(slice) => scrollToSlice(slice),
-			DEBOUNCE_DELAY,
+	// ── iframeMessageRouter ────────────────────────────────────────
+	// Single global "message" listener. Sizes wrapper height from
+	// postMessage events sent by BlockPeekPoster.js inside each iframe.
+	// Notifies scrollRestorer (when awaiting) that an iframe reported.
+	function handleIframeMessage(event) {
+		if (event.data?.type !== "resize" || !event.data?.id) return;
+		const id = String(event.data.id);
+		const iframe = document.querySelector(
+			`iframe[data-iframe-preview][data-slice-id="${id}"]`,
 		);
-		const restoreExistingSlice = async (slice) => {
-			const sliceId = slice.attr("id");
-			const $contentNav = $("#rex-js-structure-content-nav");
-			const editUrl = $contentNav.find('a[href*="edit"]:first').attr("href");
-			if (editUrl) {
-				try {
-					const result = await fetch(editUrl, {
-						method: "GET",
-						headers: {
-							"Content-Type": "text/html",
-							"X-Requested-With": "XMLHttpRequest",
-						},
-					});
-					if (!result.ok) throw new Error("Network response was not ok");
-					const html = await result.text();
-					const resultSlice = $(html).find(`#${sliceId}`);
-					if (resultSlice.length) {
-						$(".panel-body .alert").remove();
-						setSliceEdit(sliceId, slice);
-						slice.replaceWith(resultSlice);
-					}
-				} catch (error) {
-					console.error("Error restoring slice:", error);
-				}
-			}
-			return;
-		};
-		// handle back/forward navigation
-		$(window)
-			.off("popstate.asyncEdit")
-			.on("popstate.asyncEdit", () => {
-				// check current url for slice_id and open edit if found
-				const urlParams = new URLSearchParams(window.location.search);
-				const sliceId = urlParams.get("slice_id");
-				if (sliceId) {
-					const $slice = $(`#slice${sliceId}`);
-					if ($slice.length) {
-						setHistory = false;
-						$slice.find("a.btn-edit").trigger("click.asyncEdit");
-					}
-				} else {
-					// no slice_id in url, just scroll to top of page
-					window.scrollTo({ top: 0, behavior: "auto" });
-				}
-			});
-
-		handleEdit();
+		if (!iframe) return;
+		const wrapper = iframe.parentElement;
+		const zoomFactor = parseFloat(wrapper.dataset.zoomFactor) || 0.5;
+		wrapper.style.height = `${event.data.height * zoomFactor}px`;
+		reportedIframes.add(id);
+		if (pendingSettleNotifier) pendingSettleNotifier(id);
 	}
+
+	// ── scrollIntent ───────────────────────────────────────────────
+	// Capture-phase delegate listeners on document. Write sessionStorage
+	// then let the native action proceed. No preventDefault, no fetch.
+
+	function isContentEditPage() {
+		return typeof rex !== "undefined" && rex.page === "content/edit";
+	}
+
+	function writeIntent(sliceId, intent) {
+		try {
+			sessionStorage.setItem(
+				SCROLL_INTENT_KEY,
+				JSON.stringify({ sliceId, intent, t: Date.now() }),
+			);
+		} catch (_e) {
+			// sessionStorage may be disabled / quota; silently skip restoration.
+		}
+	}
+
+	function handleEditClickCapture(e) {
+		if (!isContentEditPage()) return;
+		const link = e.target.closest?.("a.btn-edit[href*='slice_id']");
+		if (!link) return;
+		let url;
+		try {
+			url = new URL(link.href, window.location.origin);
+		} catch (_e) {
+			return;
+		}
+		const sliceId = url.searchParams.get("slice_id");
+		if (sliceId) writeIntent(sliceId, "edit");
+	}
+
+	function handleFormSubmitCapture(e) {
+		if (!isContentEditPage()) return;
+		const form = e.target;
+		if (!form?.matches?.("form")) return;
+		const slice = form.closest?.(".rex-slice-edit");
+		if (!slice || !slice.id) return;
+
+		const sliceId = slice.id.replace(/^slice/, "");
+		if (!sliceId) return;
+		// REDAXO uses btn_save and btn_update (apply); Enter-key default-submitter ⇒ save.
+		const intent = e.submitter?.name === "btn_update" ? "apply" : "save";
+		writeIntent(sliceId, intent);
+	}
+
+	// ── scrollRestorer ─────────────────────────────────────────────
+	// On rex:ready (content/edit only), reads sessionStorage / URL,
+	// waits for iframes to settle, scrolls target into view (nearest),
+	// watches for late layout shifts and re-scrolls within the window.
+
+	function readSessionTarget() {
+		try {
+			const raw = sessionStorage.getItem(SCROLL_INTENT_KEY);
+			if (!raw) return null;
+			sessionStorage.removeItem(SCROLL_INTENT_KEY);
+			const parsed = JSON.parse(raw);
+			if (!parsed?.sliceId) return null;
+			if (parsed.t && Date.now() - parsed.t > SCROLL_INTENT_TTL_MS) return null;
+			return parsed;
+		} catch (_e) {
+			return null;
+		}
+	}
+
+	function readUrlTarget() {
+		const params = new URLSearchParams(window.location.search);
+		const sliceId = params.get("slice_id");
+		return sliceId ? { sliceId, intent: "edit" } : null;
+	}
+
+	function awaitIframesSettled() {
+		return new Promise((resolve) => {
+			const expected = new Set(
+				Array.from(
+					document.querySelectorAll(
+						"iframe[data-iframe-preview][data-slice-id]",
+					),
+				).map((el) => el.dataset.sliceId),
+			);
+			const reported = new Set();
+			for (const id of reportedIframes) {
+				if (expected.has(id)) reported.add(id);
+			}
+
+			const isCovered = () => {
+				for (const id of expected) {
+					if (!reported.has(id)) return false;
+				}
+				return true;
+			};
+
+			if (expected.size === 0 || isCovered()) {
+				resolve();
+				return;
+			}
+
+			let done = false;
+			const finish = () => {
+				if (done) return;
+				done = true;
+				pendingSettleNotifier = null;
+				clearTimeout(timer);
+				resolve();
+			};
+
+			pendingSettleNotifier = (id) => {
+				if (expected.has(id)) reported.add(id);
+				if (isCovered()) finish();
+			};
+			const timer = setTimeout(finish, SETTLE_TIMEOUT_MS);
+		});
+	}
+
+	function watchForLateShifts(sliceEl, durationMs) {
+		const start = performance.now();
+		let lastTop = sliceEl.getBoundingClientRect().top;
+		const tick = () => {
+			if (!sliceEl.isConnected) return;
+			if (performance.now() - start > durationMs) return;
+			const currentTop = sliceEl.getBoundingClientRect().top;
+			if (currentTop !== lastTop) {
+				sliceEl.scrollIntoView({ block: "nearest", behavior: "auto" });
+				lastTop = sliceEl.getBoundingClientRect().top;
+			}
+			requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	}
+
+	function scrollRestorer() {
+		if (!isContentEditPage()) return;
+		// A settle is already in flight; don't clobber its notifier.
+		if (pendingSettleNotifier) return;
+
+		if ("scrollRestoration" in history) {
+			history.scrollRestoration = "manual";
+		}
+
+		const target = readSessionTarget() || readUrlTarget();
+		if (!target) return;
+
+		const sliceEl =
+			document.getElementById(`slice${target.sliceId}`) ||
+			document.getElementById(target.sliceId);
+		if (!sliceEl) return;
+
+		awaitIframesSettled().then(() => {
+			sliceEl.scrollIntoView({ block: "nearest", behavior: "auto" });
+			watchForLateShifts(sliceEl, LATE_SHIFT_WATCH_MS);
+		});
+	}
+
+	// ── Module bootstrap ───────────────────────────────────────────
+	window.addEventListener("message", handleIframeMessage);
+	document.addEventListener("click", handleEditClickCapture, true);
+	document.addEventListener("submit", handleFormSubmitCapture, true);
 
 	$(document).on("rex:ready rex:selectMedia rex:YForm_selectData", () => {
-		iframePreviews();
-		asyncEdit();
+		scrollRestorer();
+	});
+
+	// bfcache / non-reload navigation: pageshow with persisted=true means JS
+	// state from a previous load is still in memory. Reset the iframe-reports
+	// cache (new page's iframes will report fresh) and re-run scroll restoration.
+	window.addEventListener("pageshow", (e) => {
+		if (e.persisted) {
+			reportedIframes.clear();
+			scrollRestorer();
+		}
 	});
 })(jQuery);

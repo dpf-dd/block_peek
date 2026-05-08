@@ -1,5 +1,16 @@
 # Changelog
 
+## **Unreleased**
+
+- refactor(js): replace async fetch-and-swap edit pipeline with native form submission + scroll restoration on page load
+  - eliminates malformed JSON payloads caused by `FormData` multipart encoding differences vs. PHP's expected encoding
+  - fixes a leaked `message` event listener that accumulated on every `rex:ready`
+  - drops `popstate` handling, manual `history.pushState`, manual CKEditor `updateSourceElement` calls, and the `restoreExistingSlice` re-fetch path
+  - apply detection corrected: REDAXO uses submitter `name="btn_update"` (was previously matched by a `/apply/i` regex that didn't fit)
+  - on edit/save/apply, page reloads natively; scroll position is restored to the target slice once iframe heights have settled (500ms settle window, 500ms late-shift watch)
+  - bfcache / non-reload navigation handled via `pageshow` listener; stale scroll-intent entries expire after 30s
+  - chore: drop unused `dev:sync`, `build:sync`, `clean:assets` scripts and `chokidar-cli`, `concurrently`, `baseline-browser-mapping` deps
+
 ## **08.05.2026 Version 1.2.0**
 
 - feat: store preview template as a hidden `rex_template` row (key: `block_peek_internal`) instead of `rex_config['template']`
