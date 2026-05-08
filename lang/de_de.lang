@@ -9,17 +9,15 @@ block_peek_settings = Konfiguration
 block_peek_docs = Read Me
 block_peek_save = Speichern
 block_peek_cancel = Abbrechen
+block_peek_no_permission = Du hast keine Berechtigung, diese Seite anzusehen.
 
-# Configuration
+# Configuration — Template
 block_peek_template = BlockPeek Template
-block_peek_template_notice = <strong>Hinweis:</strong> Der Platzhalter <b>{{block_peek_content}}</b> ist Voraussetzung, um den eigentlichen Modul-Inhalt anzuzeigen. <br />Kann ansonsten wie ein normales Template genutzt werden. <br />Standard Template:
+block_peek_template_notice = <strong>Hinweis:</strong> Der Platzhalter <b>BLOCK_PEEK_CONTENT</b> ist Voraussetzung, um den eigentlichen Slice-Inhalt anzuzeigen. <br />Das Template wird als verstecktes REDAXO-Template gespeichert (Key: <code>block_peek_internal</code>). Bitte <code>REX_ARTICLE[...]</code> nicht hinzufügen, ausser alle Slices sollen gerendert werden. <br /><strong>Tailwind 4:</strong> Wenn das <code>developer</code> Addon installiert ist, wird das Template automatisch nach <code>data/addons/developer/templates/&lt;Name&gt; [&lt;id&gt;]/template.php</code> auf die Festplatte synchronisiert, sodass Tailwind die Utility-Klassen via <code>@source</code> findet.
+block_peek_template_saved = Template gespeichert.
 
-block_peek_assets_head = Zusätzliche Inhalte für <head />
-block_peek_assets_head_notice = <strong>Hinweis:</strong> Optional. Wird als letzter Inhalt vor dem abschliessendend &lt;head /&gt; Tag eingefügt
-
-block_peek_assets_body = Zusätzliche Inhalte für <body />
-block_peek_assets_body_notice = <strong>Hinweis:</strong> Optional. Wird als letzter Inhalt vor dem abschliessendend &lt;body /&gt; Tag eingefügt
-
+# Configuration — Cache
+block_peek_cache_fieldset = Cache
 block_peek_cache = Cache verwenden
 block_peek_cache_auto = automatisch
 block_peek_cache_active = aktiviert
@@ -28,6 +26,7 @@ block_peek_cache_notice = <strong>automatisch:</strong> Cache-Aktivierung basier
 block_peek_cache_ttl = Cache TTL (in Sekunden)
 block_peek_cache_ttl_notice = <strong>Standard:</strong> 3600 Sekunden (1 Stunde)
 
+# Configuration — Misc
 block_peek_misc = Sonstiges
 
 block_peek_inactive = BlockPeek deaktivieren?
@@ -37,5 +36,5 @@ block_peek_iframe_min_height = iFrame Mindesthöhe
 block_peek_iframe_max_height = iFrame Maximalhöhe
 block_peek_iframe_zoom_factor = iFrame Zoom-Stufe
 
-block_peek_force_fe = Frontend-Kontext erwzingen
+block_peek_force_fe = Frontend-Kontext erzwingen
 block_peek_force_fe_option = ja
