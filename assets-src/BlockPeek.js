@@ -108,7 +108,7 @@
 					e.preventDefault();
 					const buttonAction = saveButton.attr("name");
 					const buttonActionValue = saveButton.attr("value");
-					if (ckeditors && typeof ckeditors === "object") {
+					if (typeof ckeditors !== "undefined" && typeof ckeditors === "object") {
 						for (const [_key, editor] of Object.entries(ckeditors)) {
 							editor.updateSourceElement();
 						}
@@ -151,7 +151,7 @@
 					e.preventDefault();
 					const buttonAction = applyButton.attr("name");
 					const buttonActionValue = applyButton.attr("value");
-					if (ckeditors && typeof ckeditors === "object") {
+					if (typeof ckeditors !== "undefined" && typeof ckeditors === "object") {
 						for (const [_key, editor] of Object.entries(ckeditors)) {
 							editor.updateSourceElement();
 						}
