@@ -2,8 +2,6 @@
 
 namespace FriendsOfRedaxo\BlockPeek;
 
-use Exception;
-
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Psr\Cache\CacheItemPoolInterface;
 
@@ -76,14 +74,17 @@ class Generator
     private function getTemplateRow(): rex_template
     {
         $template = rex_template::forKey(TemplateInstaller::KEY);
-        if ($template === null) {
-            TemplateInstaller::ensureExists();
-            $template = rex_template::forKey(TemplateInstaller::KEY);
+        // forKey() can return a non-null handle pointing at a deleted row if the
+        // key→id mapping cache is stale (e.g., row deleted via direct SQL without
+        // clearing rex_template_cache). Verify the row actually exists.
+        if ($template !== null && rex_template::exists($template->getId())) {
+            return $template;
         }
-        if ($template === null) {
-            throw new Exception('block_peek: template row could not be created');
-        }
-        return $template;
+        // Self-heal. Use the id returned by ensureExists() directly — forKey()'s
+        // static mapping cache wouldn't see the row we just inserted within the
+        // same request.
+        $id = TemplateInstaller::ensureExists();
+        return new rex_template($id);
     }
 
     private function fetchTemplateUpdateDate(int $templateId): int

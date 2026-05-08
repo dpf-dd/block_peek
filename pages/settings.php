@@ -12,9 +12,10 @@ if (!rex::getUser()->isAdmin()) {
 // ----- Template fieldset (custom form, not rex_config_form — we write to rex_template).
 
 $template = rex_template::forKey(TemplateInstaller::KEY);
-if ($template === null) {
-    TemplateInstaller::ensureExists();
-    $template = rex_template::forKey(TemplateInstaller::KEY);
+// forKey() may return a stale handle pointing at a deleted row; verify existence.
+if ($template === null || !rex_template::exists($template->getId())) {
+    // forKey()'s mapping is statically cached; use the freshly-returned id directly.
+    $template = new rex_template(TemplateInstaller::ensureExists());
 }
 $templateId = $template->getId();
 
@@ -38,7 +39,8 @@ if (rex_post('btn_save_template', 'string') !== ''
 
     $templateMessage = rex_view::success(rex_i18n::msg('block_peek_template_saved'));
 
-    $template = rex_template::forKey(TemplateInstaller::KEY);
+    // Re-fetch by id (we just confirmed it exists above; safer than forKey here).
+    $template = new rex_template($templateId);
 }
 
 $currentContent = (string) $template->getTemplate();
