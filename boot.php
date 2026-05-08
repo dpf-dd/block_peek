@@ -1,13 +1,11 @@
 <?php
 
+use FriendsOfRedaxo\BlockPeek\TemplateListHider;
+
 /** @var rex_addon_interface $addon */
 $addon = $this;
 
-/**
- * Add preview iframe to slice preview view in backend.
- */
 if ($addon->getConfig('inactive') !== '|1|') {
-
     if (rex::isBackend() && rex::getUser()) {
         rex_view::addJsFile($this->getAssetsUrl('BlockPeek.js'));
         rex_view::addCssFile($this->getAssetsUrl('BlockPeek.css'));
@@ -15,4 +13,9 @@ if ($addon->getConfig('inactive') !== '|1|') {
             rex_extension::register('SLICE_BE_PREVIEW', \FriendsOfRedaxo\BlockPeek\Extension::register(...), rex_extension::LATE);
         });
     }
+}
+
+// Hide the internal block_peek template row from the backend templates list page.
+if (rex::isBackend()) {
+    rex_extension::register('OUTPUT_FILTER', [TemplateListHider::class, 'register'], rex_extension::LATE);
 }
