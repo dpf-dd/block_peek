@@ -22,18 +22,28 @@ Einfach das Addon über den REDAXO Installer installieren, Template an eigene W�
 
 ## Konfiguration
 
-In den Einstellungen des Addons kann ein HTML-Template hinterlegt werden, das für die Vorschau der Slices verwendet wird. Dabei steht der Platzhalter `{{block_peek_content}}` zur Verfügung, der durch den jeweiligen Slice-Inhalt ersetzt wird.
+In den Einstellungen des Addons kann ein HTML-Template hinterlegt werden, das für die Vorschau der Slices verwendet wird. Dabei steht der Platzhalter `BLOCK_PEEK_CONTENT` zur Verfügung, der durch den jeweiligen Slice-Inhalt ersetzt wird.
 
 Im Template sollten die CSS-Dateien und ggf. JavaScript-Dateien eingebunden werden, die für die korrekte Darstellung des Inhalts notwendig sind.
 
-Das Template kann wie ein normales Redaxo-Template genutzt werden, inklusive aller REDAXO-Variablen und -Funktionen (inkl. PHP Code).
+Das Template wird intern als verstecktes REDAXO-Template (Key: `block_peek_internal`) gespeichert und durchläuft die normale REDAXO-Renderpipeline — inklusive aller REDAXO-Variablen, `redaxo://` Links und PHP Code. `REX_ARTICLE[...]` solltest du nicht verwenden, ausser du willst tatsächlich alle Slices des Artikels rendern.
 
 Zusätzlich können folgende Konfigurationsoptionen angepasst werden:
 
 - **Iframe Mindesthöhe:** Die minimale Höhe des Iframes in Pixeln (Standard: 300).
 - **Iframe Zoom-Faktor:** Der Zoom-Faktor des Iframes (Standard: 0.5).
 - **Cache Modus:** Legt fest, ob die generierten Vorschauen zwischengespeichert werden sollen (automatisch, aktiviert, deaktiviert).
-- **Cache TTL:** Die Zeit in Sekunden, wie lange eine Vorschau im Cache gespeichert bleibt (Standard: 3600
+- **Cache TTL:** Die Zeit in Sekunden, wie lange eine Vorschau im Cache gespeichert bleibt (Standard: 3600).
+
+## Tailwind 4 / `@source` Discovery
+
+Das Vorschau-Template wird als verstecktes REDAXO-Template (Key: `block_peek_internal`) gespeichert. Damit Tailwind 4 die im Template verwendeten Utility-Klassen findet, empfehlen wir das [`developer`](https://github.com/redaxo/developer) Addon — es synchronisiert `rex_template`-Datensätze als Dateien nach `<data>/addons/developer/templates/<Name> [<id>]/template.php` (`<data>` ist je nach Installation entweder `redaxo/data/` oder `var/data/`). Anschließend einfach eine `@source`-Direktive in dein CSS aufnehmen:
+
+```css
+@source "../../path/to/data/addons/developer/templates/**/*.php";
+```
+
+Ohne das `developer` Addon liegt das Template ausschliesslich in der Datenbank und Tailwind kann es nicht scannen. Workarounds: das `developer` Addon installieren (empfohlen) oder eine Tailwind-Safelist für die im Template verwendeten Klassen pflegen.
 
 ## Extension Points
 
