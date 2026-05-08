@@ -1,5 +1,18 @@
 # Changelog
 
+## **08.05.2026 Version 1.2.0**
+
+- feat: store preview template as a hidden `rex_template` row (key: `block_peek_internal`) instead of `rex_config['template']`
+  - enables Tailwind 4 `@source` discovery via the `developer` addon's filesystem mirror
+  - uses REDAXO's native rendering pipeline (drops `Generator::generateTemplate` + `Generator::replaceVars` machinery, ~60 lines lighter)
+  - existing customized templates are auto-migrated on install — no user action required
+- feat: drop `assets_head` / `assets_body` settings fields — their content auto-merges into the template at install time, then they're removed from the form (one place to edit)
+- feat: settings page template editor saves directly to the `rex_template` row, fires `TEMPLATE_UPDATED` so listeners (e.g., `developer` addon) react
+- feat: hide `block_peek_internal` template from the templates list page via backend `OUTPUT_FILTER`
+- feat: placeholder renamed `{{block_peek_content}}` → `BLOCK_PEEK_CONTENT` (auto-rewritten during migration)
+- fix: cache key now includes template `updatedate` so template edits invalidate stale entries
+- fix: `rex_article_content` constructor now sets clang before article id (latent ordering bug in previous Generator)
+
 ## **14.03.2026 Version 1.1.2**
 
 - fix: actually remove src files in build output
