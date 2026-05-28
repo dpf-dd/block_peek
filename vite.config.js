@@ -11,10 +11,7 @@ function getVersionFromPackageYml() {
 		const packageData = yaml.load(packageYmlContent);
 		return packageData.version || "1.0.0";
 	} catch (error) {
-		console.warn(
-			"Warning: Could not read version from package.yml:",
-			error.message,
-		);
+		console.warn("Warning: Could not read version from package.yml:", error.message);
 		return "1.0.0";
 	}
 }

@@ -8,11 +8,7 @@
 	// Get current SLICE_WRAPPER height
 	function getCurrentHeight() {
 		return Math.min(
-			Math.max(
-				SLICE_WRAPPER.scrollHeight,
-				SLICE_WRAPPER.offsetHeight,
-				SLICE_WRAPPER.clientHeight,
-			),
+			Math.max(SLICE_WRAPPER.scrollHeight, SLICE_WRAPPER.offsetHeight, SLICE_WRAPPER.clientHeight),
 			maxHeight,
 		);
 	}

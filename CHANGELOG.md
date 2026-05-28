@@ -1,5 +1,10 @@
 # Changelog
 
+## **28.05.2026 Version 1.2.1**
+
+- fix: mixed named parameters and positional parameters
+- chore: fix formatting
+
 ## **08.05.2026 Version 1.2.0**
 
 - refactor(js): replace async fetch-and-swap edit pipeline with native form submission + scroll restoration on page load

@@ -21,9 +21,7 @@
 	function handleIframeMessage(event) {
 		if (event.data?.type !== "resize" || !event.data?.id) return;
 		const id = String(event.data.id);
-		const iframe = document.querySelector(
-			`iframe[data-iframe-preview][data-slice-id="${id}"]`,
-		);
+		const iframe = document.querySelector(`iframe[data-iframe-preview][data-slice-id="${id}"]`);
 		if (!iframe) return;
 		const wrapper = iframe.parentElement;
 		const zoomFactor = parseFloat(wrapper.dataset.zoomFactor) || 0.5;
@@ -42,10 +40,7 @@
 
 	function writeIntent(sliceId, intent) {
 		try {
-			sessionStorage.setItem(
-				SCROLL_INTENT_KEY,
-				JSON.stringify({ sliceId, intent, t: Date.now() }),
-			);
+			sessionStorage.setItem(SCROLL_INTENT_KEY, JSON.stringify({ sliceId, intent, t: Date.now() }));
 		} catch (_e) {
 			// sessionStorage may be disabled / quota; silently skip restoration.
 		}
@@ -107,11 +102,9 @@
 	function awaitIframesSettled() {
 		return new Promise((resolve) => {
 			const expected = new Set(
-				Array.from(
-					document.querySelectorAll(
-						"iframe[data-iframe-preview][data-slice-id]",
-					),
-				).map((el) => el.dataset.sliceId),
+				Array.from(document.querySelectorAll("iframe[data-iframe-preview][data-slice-id]")).map(
+					(el) => el.dataset.sliceId,
+				),
 			);
 			const reported = new Set();
 			for (const id of reportedIframes) {
@@ -175,9 +168,7 @@
 		const target = readSessionTarget() || readUrlTarget();
 		if (!target) return;
 
-		const sliceEl =
-			document.getElementById(`slice${target.sliceId}`) ||
-			document.getElementById(target.sliceId);
+		const sliceEl = document.getElementById(`slice${target.sliceId}`) || document.getElementById(target.sliceId);
 		if (!sliceEl) return;
 
 		awaitIframesSettled().then(() => {
