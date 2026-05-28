@@ -28,7 +28,7 @@ if (rex_post('btn_save_template', 'string') !== ''
 
     $sql = rex_sql::factory();
     $sql->setTable(rex::getTable('template'));
-    $sql->setWhere('id = ?', [$templateId]);
+    $sql->setWhere('id = :id', ['id' => $templateId]);
     $sql->setValue('content', $newContent);
     $sql->addGlobalUpdateFields();
     $sql->update();
