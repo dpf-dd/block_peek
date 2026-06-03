@@ -1,5 +1,9 @@
 # Changelog
 
+## **28.05.2026 Version 1.2.2**
+
+- chore: bump deps
+
 ## **28.05.2026 Version 1.2.1**
 
 - fix: mixed named parameters and positional parameters
