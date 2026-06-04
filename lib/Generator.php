@@ -121,6 +121,15 @@ class Generator
         $html = $this->injectPosterAndStyles($html);
         $html = $this->setHtmlLang($html);
 
+        // Resolve sprog wildcards ({{ … }}) for the preview's language. sprog only
+        // runs its OUTPUT_FILTER on the frontend (sprog/boot.php: if (!rex::isBackend())),
+        // so without this the backend preview shows raw wildcards. Pass the preview's
+        // clang explicitly — Wildcard::parse() defaults to rex_clang::getCurrentId(),
+        // which in the backend is the admin's clang, not necessarily the one previewed.
+        if (rex_addon::get('sprog')->isAvailable()) {
+            $html = \Sprog\Wildcard::parse($html, $this->clangId);
+        }
+
         $html = rex_extension::registerPoint(new rex_extension_point('BLOCK_PEEK_OUTPUT', $html, [
             'article_id' => $this->articleId,
             'clang' => $this->clangId,

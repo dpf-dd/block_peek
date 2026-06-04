@@ -1,5 +1,9 @@
 # Changelog
 
+## **04.06.2026 Version 1.3.0**
+
+- feat: resolve sprog wildcards (`{{ … }}`) in slice previews when the `sprog` addon is installed — parsed in the preview's clang before the iframe is built, so backend previews match the translated frontend output (sprog's own wildcard filter only runs on the frontend)
+
 ## **28.05.2026 Version 1.2.2**
 
 - chore: bump deps
