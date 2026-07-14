@@ -18,5 +18,6 @@
 		max-width: none;
 		height: var(--size);
 		overflow: hidden;
+		pointer-events: none;
 	}
 }
